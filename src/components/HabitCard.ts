@@ -1,120 +1,81 @@
-import type { HabitSummary, LedgerActions, LedgerView } from '../types';
-import { formatShortDate, toDayKey } from '../lib/dates';
-import { attr, data, el, glyph, hidden } from '../lib/dom';
-import { DayRecord } from './DayGrid';
+import type { Actions, Summary, View } from '../types';
+import { shortDate, toDayKey } from '../lib/dates';
+import { attr, data, el, mark, sr } from '../lib/dom';
+import { DayGrid } from './DayGrid';
 import { MilestoneRail } from './MilestoneSeal';
 import { StreakCounter } from './StreakCounter';
 
-/** How long a removal stays armed before it disarms itself. */
-const REMOVAL_ARM_MS = 4_000;
-
-/**
- * One habit, written up as a ledger entry: the name and its ink, the tally,
- * the seals it has earned, the stamp for today, and the day-by-day record.
- */
-export function HabitCard(
-  summary: HabitSummary,
-  view: LedgerView,
-  today: string,
-  actions: LedgerActions,
-): HTMLElement {
-  const { habit, streak } = summary;
-  const marked = streak.completedToday;
+/** One habit written up as a ledger entry: tally, seals, stamp and record. */
+export function HabitCard(s: Summary, view: View, today: string, actions: Actions): HTMLElement {
+  const { habit, streak } = s;
+  const on = streak.today;
   const opened = toDayKey(new Date(habit.createdAt));
 
   const stamp = data(
-    attr(
-      el(
-        'button',
-        'stamp',
-        glyph('stamp__glyph', marked ? '✓' : '○'),
-        el('span', 'stamp__text', marked ? 'Marked today' : 'Mark today'),
-      ),
-      {
-        type: 'button',
-        'aria-pressed': String(marked),
-        'aria-label': marked
-          ? `Undo today's mark for ${habit.name}`
-          : `Mark ${habit.name} as done today`,
-      },
-    ),
-    { marked: String(marked) },
+    attr(el('button', 'stamp', mark('', on ? '✓' : '○'), on ? 'Marked today' : 'Mark today'), {
+      type: 'button',
+      'aria-pressed': String(on),
+      'aria-label': on ? `Undo today's mark for ${habit.name}` : `Mark ${habit.name} as done today`,
+    }),
+    { marked: String(on) },
   );
-  stamp.addEventListener('click', () => actions.toggleToday(habit.id));
-
-  const identity = el(
-    'div',
-    'card__identity',
-    attr(el('h3', 'card__name', habit.name), { id: `habit-${habit.id}` }),
-    el(
-      'p',
-      'card__meta',
-      'Opened ',
-      attr(el('time', undefined, formatShortDate(opened)), { datetime: opened }),
-    ),
-  );
+  stamp.addEventListener('click', () => actions.toggle(habit.id));
 
   const header = el(
     'header',
-    'card__header',
-    data(attr(el('span', 'card__ink'), { 'aria-hidden': 'true' }), { ink: habit.ink }),
-    identity,
-    RemoveButton(summary, actions),
+    'card__head',
+    data(attr(el('span', 'spine'), { 'aria-hidden': 'true' }), { ink: habit.ink }),
+    el(
+      'div',
+      undefined,
+      attr(el('h3', 'card__name', habit.name), { id: `h-${habit.id}` }),
+      el('p', 'term', 'Opened ', attr(el('time', undefined, shortDate(opened)), { datetime: opened })),
+    ),
+    RemoveButton(s, actions),
   );
 
   const body = el(
     'div',
     'card__body',
-    el('div', 'card__tally', StreakCounter(habit.name, streak), stamp),
-    el(
-      'div',
-      'card__record',
-      MilestoneRail(habit.name, summary.milestones),
-      DayRecord(view, summary, today),
-    ),
+    el('div', 'tally', StreakCounter(habit.name, streak), stamp),
+    el('div', 'record__col', MilestoneRail(habit.name, s.milestones), DayGrid(view, s, today)),
   );
 
-  return data(attr(el('article', 'card', header, body), { 'aria-labelledby': `habit-${habit.id}` }), {
+  return data(attr(el('article', 'card', header, body), { 'aria-labelledby': `h-${habit.id}` }), {
     ink: habit.ink,
     status: streak.status,
   });
 }
 
 /** Removal is armed by the first press and carried out by the second. */
-function RemoveButton(summary: HabitSummary, actions: LedgerActions): HTMLButtonElement {
-  const { habit } = summary;
-  let armed = false;
-  let timer: ReturnType<typeof setTimeout> | null = null;
-
-  const label = el('span', 'remove__text', 'Close');
+function RemoveButton(s: Summary, actions: Actions): HTMLButtonElement {
+  const text = el('span', undefined, 'Close');
   const button = data(
-    attr(el('button', 'remove', glyph('remove__glyph', '×'), label, hidden('Press twice to confirm.')), {
+    attr(el('button', 'remove', mark('', '×'), text, sr('Press twice to confirm.')), {
       type: 'button',
-      'aria-label': `Close the ${habit.name} entry and erase its record`,
+      'aria-label': `Close the ${s.habit.name} entry and erase its record`,
     }),
     { armed: 'false' },
   );
 
-  function disarm(): void {
+  let armed = false;
+  const disarm = (): void => {
     armed = false;
     button.dataset['armed'] = 'false';
-    label.textContent = 'Close';
-    if (timer !== null) clearTimeout(timer);
-    timer = null;
-  }
+    text.textContent = 'Close';
+  };
 
   button.addEventListener('click', () => {
     if (armed) {
       disarm();
-      actions.removeHabit(habit.id);
+      actions.remove(s.habit.id);
       return;
     }
     armed = true;
     button.dataset['armed'] = 'true';
-    label.textContent = 'Confirm';
-    timer = setTimeout(disarm, REMOVAL_ARM_MS);
+    text.textContent = 'Confirm';
+    setTimeout(disarm, 4e3);
   });
   button.addEventListener('blur', disarm);
-
   return button;
 }

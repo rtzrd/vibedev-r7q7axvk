@@ -1,185 +1,123 @@
-import type { AppState, HabitSummary } from '../types';
-import type { LedgerStore } from '../state/store';
-import { formatLongDate } from '../lib/dates';
-import { attr, el, fill, glyph } from '../lib/dom';
+import type { AppState, Summary, View } from '../types';
+import type { Store } from '../state/store';
+import { longDate } from '../lib/dates';
+import { attr, el, fill, mark } from '../lib/dom';
 import { HabitCard } from '../components/HabitCard';
-import { HabitForm, type HabitFormHandle } from '../components/HabitForm';
-import { EmptyPanel, ErrorPanel, LoadingPanel, StorageWarning } from '../components/StatusPanel';
-import { ViewSwitch, type ViewSwitchHandle } from '../components/ViewSwitch';
+import { HabitForm, type FormHandle } from '../components/HabitForm';
+import { Empty, Failed, Pending, SaveWarning } from '../components/StatusPanel';
 
 /**
- * The render layer.
- *
- * The shell is built once and then patched: only the entry list, the banners
- * and the live region change between passes, so the intake field keeps its
- * focus and its half-typed contents while the ledger around it redraws.
+ * The shell is built once and then patched, so the intake field keeps its focus
+ * and half-typed contents while the ledger around it redraws.
  */
 
-interface Surfaces {
-  readonly live: HTMLElement;
-  readonly warning: HTMLElement;
-  readonly entries: HTMLElement;
-  readonly tally: HTMLElement;
-  readonly form: HabitFormHandle;
-  readonly viewSwitch: ViewSwitchHandle;
-}
+const VIEWS: readonly { value: View; label: string; hint: string }[] = [
+  { value: 'month', label: 'Month', hint: 'Show the whole calendar month' },
+  { value: 'recent', label: 'Recent', hint: 'Show the last three weeks as a band' },
+];
 
-/** Build the shell, wire it to the store and start the first read. */
-export function mountApp(root: HTMLElement, store: LedgerStore): void {
-  const surfaces = buildShell(root, store);
-  let habitCount = 0;
-
-  store.subscribe((state) => {
-    if (state.habits.length > habitCount) surfaces.form.reset();
-    habitCount = state.habits.length;
-    paint(surfaces, state, store);
-  });
-
-  paint(surfaces, store.getState(), store);
-  store.load();
-}
-
-function buildShell(root: HTMLElement, store: LedgerStore): Surfaces {
+export function mountApp(root: HTMLElement, store: Store): void {
   const today = store.today();
-
-  const live = attr(el('p', 'live'), {
-    role: 'status',
-    'aria-live': 'polite',
-    'aria-atomic': 'true',
-  });
-
-  const tally = el('dl', 'masthead__tally');
+  const live = attr(el('p', 'live'), { role: 'status', 'aria-live': 'polite' });
+  const tally = el('dl', 'tallies');
+  const form = HabitForm(store.actions);
+  const warning = el('div', 'warn-slot');
+  const list = el('div');
 
   const masthead = el(
     'header',
     'masthead',
-    el(
-      'div',
-      'masthead__brand',
-      el('p', 'masthead__eyebrow', 'Kept by hand, in this browser'),
-      el(
-        'h1',
-        'masthead__title',
-        el('span', 'masthead__word', 'The Daily'),
-        el('span', 'masthead__word masthead__word--accent', 'Ledger'),
-      ),
-    ),
-    el(
-      'p',
-      'masthead__date',
-      el('span', 'masthead__date-label', 'Entry for'),
-      attr(el('time', undefined, formatLongDate(today)), { datetime: today }),
-    ),
+    el('p', 'term', 'Kept by hand, in this browser'),
+    el('h1', 'title', el('span', undefined, 'The Daily'), el('span', 'title__x', 'Ledger')),
+    el('p', 'date term', 'Entry for ', attr(el('time', 'date__d', longDate(today)), { datetime: today })),
     tally,
     live,
   );
 
-  const form = HabitForm(store.actions);
+  const switches = VIEWS.map((option) => {
+    const button = attr(el('button', 'tab', option.label), {
+      type: 'button',
+      role: 'radio',
+      'aria-checked': String(option.value === store.getState().view),
+      'aria-label': option.hint,
+    });
+    button.addEventListener('click', () => store.actions.setView(option.value));
+    return button;
+  });
 
-  const intake = attr(
-    el(
-      'section',
-      'intake',
-      attr(el('h2', 'section__heading', 'Open an entry'), { id: 'intake-heading' }),
-      el('p', 'section__lede', 'One line per habit. The ledger counts the days for you.'),
-      form.element,
-    ),
-    { 'aria-labelledby': 'intake-heading' },
+  const nav = attr(
+    el('nav', 'viewbar', el('span', 'term', 'Record'), attr(el('div', 'tabs', ...switches), { role: 'radiogroup', 'aria-label': 'Record view' })),
+    { 'aria-label': 'Record view' },
   );
 
-  const viewSwitch = ViewSwitch(store.getState().view, store.actions.setView);
-  const warning = el('div', 'warning-slot');
-  const entries = el('div', 'entries__list');
-
-  const record = attr(
+  const main = attr(
     el(
-      'section',
-      'entries',
-      el(
-        'div',
-        'entries__header',
-        attr(el('h2', 'section__heading', 'The record'), { id: 'entries-heading' }),
-        viewSwitch.element,
+      'main',
+      'main',
+      warning,
+      attr(
+        el('section', 'intake', attr(el('h2', 'h2', 'Open an entry'), { id: 'intake' }), el('p', 'body', 'One line per habit. The ledger counts the days for you.'), form.element),
+        { 'aria-labelledby': 'intake' },
       ),
-      entries,
+      attr(
+        el('section', 'entries', el('div', 'entries__head', attr(el('h2', 'h2', 'The record'), { id: 'rec' }), nav), list),
+        { 'aria-labelledby': 'rec' },
+      ),
     ),
-    { 'aria-labelledby': 'entries-heading' },
+    { id: 'ledger' },
   );
 
-  const main = attr(el('main', 'shell__main', warning, intake, record), { id: 'ledger' });
-
-  const colophon = el(
+  const footer = el(
     'footer',
-    'colophon',
-    el(
-      'p',
-      'colophon__line',
-      'Everything above is held in this browser alone. No account, no server, no copy anywhere else.',
-    ),
-    glyph('colophon__mark', '❧'),
+    'colophon term',
+    'Everything above is held in this browser alone. No account, no server.',
+    mark('flourish', '❧'),
   );
 
-  const skip = attr(el('a', 'skip-link', 'Skip to the ledger'), { href: '#ledger' });
+  fill(root, [
+    attr(el('a', 'skip', 'Skip to the ledger'), { href: '#ledger' }),
+    el('div', 'shell', masthead, main, footer),
+  ]);
 
-  fill(root, [skip, el('div', 'shell', masthead, main, colophon)]);
+  let count = 0;
+  const paint = (): void => {
+    const state = store.getState();
+    const summaries = store.summaries();
+    if (state.habits.length > count) form.reset();
+    count = state.habits.length;
 
-  return { live, warning, entries, tally, form, viewSwitch };
+    form.error(state.formError);
+    live.textContent = state.notice ?? '';
+    switches.forEach((b, i) => b.setAttribute('aria-checked', String(VIEWS[i]?.value === state.view)));
+    fill(tally, tallies(state, summaries));
+    fill(warning, state.phase === 'ready' && state.saveError !== null ? [SaveWarning(state.saveError)] : []);
+    fill(list, [entries(state, summaries, store, form)]);
+  };
+
+  store.subscribe(paint);
+  paint();
+  store.load();
 }
 
-function paint(surfaces: Surfaces, state: AppState, store: LedgerStore): void {
-  const summaries = store.getSummaries();
-
-  surfaces.form.showError(state.formError);
-  surfaces.viewSwitch.setView(state.view);
-  surfaces.live.textContent = state.notice ?? '';
-  fill(surfaces.tally, tallyFor(state, summaries));
-  fill(
-    surfaces.warning,
-    state.phase === 'ready' && state.storageError !== null
-      ? [StorageWarning(state.storageError)]
-      : [],
-  );
-  fill(surfaces.entries, [entriesFor(state, summaries, store, surfaces)]);
-}
-
-function entriesFor(
-  state: AppState,
-  summaries: readonly HabitSummary[],
-  store: LedgerStore,
-  surfaces: Surfaces,
-): HTMLElement {
-  if (state.phase === 'pending') return LoadingPanel();
-  if (state.phase === 'failed') {
-    return ErrorPanel(state.storageError ?? 'The reason was not recorded.', () => store.load());
-  }
-  if (summaries.length === 0) return EmptyPanel(() => surfaces.form.focusField());
+function entries(state: AppState, summaries: Summary[], store: Store, form: FormHandle): HTMLElement {
+  if (state.phase === 'pending') return Pending();
+  if (state.phase === 'failed') return Failed(state.saveError ?? 'No reason was recorded.', () => store.load());
+  if (summaries.length === 0) return Empty(() => form.focus());
 
   const today = store.today();
-  const cards = summaries.map((summary) => HabitCard(summary, state.view, today, store.actions));
-  return el('div', 'cards', ...cards);
+  return el('div', 'cards', ...summaries.map((s) => HabitCard(s, state.view, today, store.actions)));
 }
 
-function tallyFor(state: AppState, summaries: readonly HabitSummary[]): HTMLElement[] {
+function tallies(state: AppState, summaries: Summary[]): HTMLElement[] {
   if (state.phase !== 'ready' || summaries.length === 0) return [];
-
-  const marked = summaries.filter((summary) => summary.streak.completedToday).length;
-  const best = summaries.reduce((max, summary) => Math.max(max, summary.streak.current), 0);
-  const seals = summaries.reduce((total, summary) => total + summary.milestones.earned.length, 0);
+  const done = summaries.filter((s) => s.streak.today).length;
+  const best = summaries.reduce((m, s) => Math.max(m, s.streak.current), 0);
+  const seals = summaries.reduce((n, s) => n + s.milestones.earned.length, 0);
 
   return [
-    pair('Entries', String(summaries.length)),
-    pair('Marked today', `${marked}/${summaries.length}`),
-    pair('Longest run', `${best}d`),
-    pair('Seals', String(seals)),
-  ];
-}
-
-/** A `div` inside a `dl` is the sanctioned way to keep a pair together. */
-function pair(term: string, value: string): HTMLElement {
-  return el(
-    'div',
-    'masthead__pair',
-    el('dt', 'masthead__term', term),
-    el('dd', 'masthead__value', value),
-  );
+    ['Entries', `${summaries.length}`],
+    ['Marked today', `${done}/${summaries.length}`],
+    ['Longest run', `${best}d`],
+    ['Seals', `${seals}`],
+  ].map(([term, value]) => el('div', 'pair', el('dt', 'term', term ?? ''), el('dd', 'value', value ?? '')));
 }

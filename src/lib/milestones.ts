@@ -1,48 +1,29 @@
 import type { Milestone, MilestoneProgress } from '../types';
 
-/**
- * The milestone ladder. Each rung is a wax seal pressed into the ledger once a
- * run reaches it — seven days, thirty, then a hundred.
- */
+/** Wax seals pressed into the ledger at seven, thirty and a hundred days. */
 export const MILESTONES: readonly Milestone[] = [
-  { days: 7, label: 'Seven-day', seal: 'VII' },
-  { days: 30, label: 'Thirty-day', seal: 'XXX' },
-  { days: 100, label: 'Hundred-day', seal: 'C' },
+  { days: 7, seal: 'VII', label: 'seven-day' },
+  { days: 30, seal: 'XXX', label: 'thirty-day' },
+  { days: 100, seal: 'C', label: 'hundred-day' },
 ];
 
-/** Which seals a run of `streakLength` days has earned, and what is next. */
-export function milestoneProgress(streakLength: number): MilestoneProgress {
-  const earned = MILESTONES.filter((milestone) => streakLength >= milestone.days);
-  const next = MILESTONES.find((milestone) => streakLength < milestone.days) ?? null;
-  const previousRung = earned.length > 0 ? (earned[earned.length - 1]?.days ?? 0) : 0;
+/** Which seals a run has earned, and how far the next one is. */
+export function milestoneProgress(streak: number): MilestoneProgress {
+  const earned = MILESTONES.filter((m) => streak >= m.days);
+  const next = MILESTONES.find((m) => streak < m.days) ?? null;
+  if (next === null) return { earned, next: null, left: null, ratio: 1 };
 
-  if (next === null) {
-    return { earned, next: null, daysRemaining: null, ratio: 1 };
-  }
-
-  const span = next.days - previousRung;
-  const travelled = streakLength - previousRung;
-
+  const from = earned.at(-1)?.days ?? 0;
   return {
     earned,
     next,
-    daysRemaining: next.days - streakLength,
-    ratio: span <= 0 ? 0 : clamp(travelled / span, 0, 1),
+    left: next.days - streak,
+    ratio: Math.min(1, Math.max(0, (streak - from) / (next.days - from))),
   };
 }
 
-/** True when a run has just landed exactly on a rung. */
-export function isMilestoneDay(streakLength: number): boolean {
-  return MILESTONES.some((milestone) => milestone.days === streakLength);
-}
-
-/** Announcement text for the live region when a seal is earned. */
-export function milestoneAnnouncement(habitName: string, streakLength: number): string | null {
-  const reached = MILESTONES.find((milestone) => milestone.days === streakLength);
-  if (reached === undefined) return null;
-  return `${habitName} has reached the ${reached.label.toLowerCase()} mark. Seal earned.`;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
+/** Announcement for the live region on the day a seal is earned. */
+export function milestoneNotice(name: string, streak: number): string | null {
+  const hit = MILESTONES.find((m) => m.days === streak);
+  return hit === undefined ? null : `${name} has reached the ${hit.label} mark. Seal earned.`;
 }

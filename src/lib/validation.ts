@@ -1,76 +1,38 @@
-import type { Habit, ValidationResult } from '../types';
+import type { Habit, Validation } from '../types';
 
-/**
- * Input rules for a habit name. Checked before anything reaches state or
- * storage, and the failure message is written to be shown to a person next to
- * the field rather than logged somewhere they will never look.
- */
+/** Habit-name rules. Messages are written to be shown beside the field. */
 
-export const MIN_HABIT_NAME_LENGTH = 2;
-export const MAX_HABIT_NAME_LENGTH = 60;
+export const MAX_NAME = 60;
+const MIN_NAME = 2;
 
-const LOWEST_PRINTABLE_CODE = 32;
-const DELETE_CODE = 127;
-const CONTROL_BLOCK_START = 128;
-const CONTROL_BLOCK_END = 159;
+export const tidy = (name: string): string => name.trim().replace(/\s+/g, ' ');
+const key = (name: string): string => tidy(name).toLowerCase();
 
 /** True when the text carries a code point no ledger line should hold. */
-export function hasUnprintableCharacters(text: string): boolean {
-  for (let index = 0; index < text.length; index += 1) {
-    const code = text.charCodeAt(index);
-    if (code < LOWEST_PRINTABLE_CODE) return true;
-    if (code === DELETE_CODE) return true;
-    if (code >= CONTROL_BLOCK_START && code <= CONTROL_BLOCK_END) return true;
+export function unprintable(text: string): boolean {
+  for (let i = 0; i < text.length; i += 1) {
+    const c = text.charCodeAt(i);
+    if (c < 32 || c === 127 || (c >= 128 && c <= 159)) return true;
   }
   return false;
 }
 
-/** Collapse whitespace and case so `Read  Daily` and `read daily` clash. */
-export function comparableName(name: string): string {
-  return name.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
-}
-
-/** Trim and collapse runs of whitespace, leaving the writer's own casing. */
-export function tidyName(name: string): string {
-  return name.trim().replace(/\s+/g, ' ');
-}
-
-/** Check a typed habit name against every rule, current habit list included. */
-export function validateHabitName(
-  rawName: string,
-  existingHabits: readonly Habit[],
-): ValidationResult {
-  const name = tidyName(rawName);
-
-  if (name === '') {
-    return { valid: false, message: 'Give the habit a name before adding it.' };
-  }
-
-  if (hasUnprintableCharacters(name)) {
+export function validateName(raw: string, existing: readonly Habit[]): Validation {
+  const name = tidy(raw);
+  if (name === '') return { valid: false, message: 'Give the habit a name before adding it.' };
+  if (unprintable(name)) {
     return { valid: false, message: 'That name contains characters the ledger cannot record.' };
   }
-
-  if (name.length < MIN_HABIT_NAME_LENGTH) {
-    return { valid: false, message: `Use at least ${MIN_HABIT_NAME_LENGTH} characters.` };
+  if (name.length < MIN_NAME) {
+    return { valid: false, message: `Use at least ${MIN_NAME} characters.` };
   }
-
-  if (name.length > MAX_HABIT_NAME_LENGTH) {
-    return {
-      valid: false,
-      message: `Keep it to ${MAX_HABIT_NAME_LENGTH} characters — that one is ${name.length}.`,
-    };
+  if (name.length > MAX_NAME) {
+    return { valid: false, message: `Keep it to ${MAX_NAME} characters — that one is ${name.length}.` };
   }
-
-  const clash = comparableName(name);
-  const duplicate = existingHabits.find((habit) => comparableName(habit.name) === clash);
-  if (duplicate !== undefined) {
-    return { valid: false, message: `“${duplicate.name}” is already in the ledger.` };
-  }
-
-  return { valid: true, value: name };
+  const clash = existing.find((h) => key(h.name) === key(name));
+  return clash === undefined
+    ? { valid: true, value: name }
+    : { valid: false, message: `“${clash.name}” is already in the ledger.` };
 }
 
-/** Characters remaining before the field is over length. */
-export function remainingCharacters(rawName: string): number {
-  return MAX_HABIT_NAME_LENGTH - tidyName(rawName).length;
-}
+export const charsLeft = (raw: string): number => MAX_NAME - tidy(raw).length;

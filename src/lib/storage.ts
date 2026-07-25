@@ -1,55 +1,31 @@
-import type {
-  Habit,
-  HabitInkName,
-  HabitLogEntry,
-  LedgerSnapshot,
-  StorageFailure,
-  StorageResult,
-} from '../types';
+import type { Habit, HabitLog, Ink, Snapshot, StorageFailure, StorageResult } from '../types';
 import { isValidDayKey } from './dates';
 
 /**
- * The persistence layer.
- *
- * Every read and write is wrapped: `localStorage` can throw simply by being
- * touched (private browsing, blocked third-party storage), it can be full, and
- * whatever comes back out is untrusted text that may have been written by an
- * older version of this app — or by hand. Nothing here throws at the call site;
- * failures come back as values so the UI can show them.
+ * Persistence. localStorage can throw simply by being touched, it can be full,
+ * and what comes back is untrusted text possibly written by an older version.
+ * Nothing here throws: failures come back as values so the UI can show them.
  */
 
-export const STORAGE_KEY = 'daily-ledger/v1';
-export const SCHEMA_VERSION = 1;
+export const KEY = 'daily-ledger/v1';
+const INKS: readonly Ink[] = ['oxblood', 'verdigris', 'brass', 'indigo', 'plum'];
 
-const INKS: readonly HabitInkName[] = ['oxblood', 'verdigris', 'brass', 'indigo', 'plum'];
-const MAX_NAME = 60;
-
-/** The slice of the Web Storage API this module needs. */
 export interface StorageLike {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-  removeItem(key: string): void;
+  getItem(k: string): string | null;
+  setItem(k: string, v: string): void;
 }
 
-/** A bound reader/writer over one storage backend. */
 export interface LedgerStorage {
-  read(): StorageResult<LedgerSnapshot>;
-  write(snapshot: LedgerSnapshot): StorageResult<LedgerSnapshot>;
-  clear(): StorageResult<null>;
+  read(): StorageResult<Snapshot>;
+  write(snapshot: Snapshot): StorageResult<Snapshot>;
 }
 
-export const EMPTY_SNAPSHOT: LedgerSnapshot = { version: SCHEMA_VERSION, habits: [], entries: [] };
+const fail = (kind: StorageFailure['kind'], message: string): StorageResult<never> => ({
+  ok: false,
+  error: { kind, message },
+});
 
-function fail(kind: StorageFailure['kind'], message: string): StorageResult<never> {
-  return { ok: false, error: { kind, message } };
-}
-
-function why(error: unknown): string {
-  return error instanceof Error && error.message !== '' ? error.message : 'No detail was given.';
-}
-
-/** Resolve `localStorage`, treating any access error as simply unavailable. */
-export function resolveLocalStorage(): StorageLike | null {
+export function localStore(): StorageLike | null {
   try {
     return globalThis.localStorage ?? null;
   } catch {
@@ -57,20 +33,19 @@ export function resolveLocalStorage(): StorageLike | null {
   }
 }
 
-/** Build a storage facade over any backend, real or faked in a test. */
-export function createLedgerStorage(resolve: () => StorageLike | null): LedgerStorage {
+export function createStorage(resolve: () => StorageLike | null): LedgerStorage {
   return {
     read() {
       const backend = resolve();
-      if (backend === null) return fail('unavailable', 'This browser is not letting the page save anything locally.');
+      if (backend === null) return fail('unavailable', 'This browser will not let the page save anything locally.');
 
       let raw: string | null;
       try {
-        raw = backend.getItem(STORAGE_KEY);
-      } catch (error) {
-        return fail('unavailable', `The saved ledger could not be opened. ${why(error)}`);
+        raw = backend.getItem(KEY);
+      } catch {
+        return fail('unavailable', 'The saved ledger could not be opened.');
       }
-      if (raw === null || raw.trim() === '') return { ok: true, value: EMPTY_SNAPSHOT };
+      if (raw === null || raw.trim() === '') return { ok: true, value: { habits: [], logs: [] } };
 
       let parsed: unknown;
       try {
@@ -79,7 +54,7 @@ export function createLedgerStorage(resolve: () => StorageLike | null): LedgerSt
         return fail('parse', 'The saved ledger is not readable JSON, so it was left untouched.');
       }
 
-      const snapshot = normaliseSnapshot(parsed);
+      const snapshot = normalise(parsed);
       return snapshot === null
         ? fail('shape', 'The saved ledger is in a shape this version cannot read.')
         : { ok: true, value: snapshot };
@@ -87,145 +62,79 @@ export function createLedgerStorage(resolve: () => StorageLike | null): LedgerSt
 
     write(snapshot) {
       const backend = resolve();
-      if (backend === null) return fail('unavailable', 'Nothing can be saved: local storage is switched off.');
-
+      if (backend === null) return fail('unavailable', 'Nothing can be saved: local storage is off.');
       try {
-        backend.setItem(STORAGE_KEY, JSON.stringify({ ...snapshot, version: SCHEMA_VERSION }));
+        backend.setItem(KEY, JSON.stringify({ version: 1, ...snapshot }));
       } catch (error) {
-        const quota =
-          error instanceof Error &&
-          (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED');
-        return quota
+        const full = error instanceof Error && error.name === 'QuotaExceededError';
+        return full
           ? fail('quota', 'There is no room left in local storage for this entry.')
-          : fail('unknown', `The ledger could not be saved. ${why(error)}`);
+          : fail('unknown', 'The ledger could not be saved.');
       }
       return { ok: true, value: snapshot };
     },
-
-    clear() {
-      const backend = resolve();
-      if (backend === null) return fail('unavailable', 'Local storage is switched off.');
-      try {
-        backend.removeItem(STORAGE_KEY);
-      } catch (error) {
-        return fail('unknown', `The ledger could not be cleared. ${why(error)}`);
-      }
-      return { ok: true, value: null };
-    },
   };
 }
 
-/** The app's default storage, bound to `localStorage` when one exists. */
-export const ledgerStorage: LedgerStorage = createLedgerStorage(resolveLocalStorage);
+export const storage = createStorage(localStore);
+
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v);
+const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? v : null);
+const num = (v: unknown): number => (typeof v === 'number' && isFinite(v) ? v : 0);
 
 /**
- * Coerce anything into a trustworthy snapshot, or `null` if it is beyond
- * saving. Accepts the current shape and the earlier ones this app has shipped:
- * a bare array of habits, and habits carrying their own list of days.
+ * Coerce anything into a trustworthy snapshot, or null if it is beyond saving.
+ * Accepts the current shape and the earlier ones this app shipped: a bare array
+ * of habits, habits carrying their own day list, and the older field names.
  */
-export function normaliseSnapshot(input: unknown): LedgerSnapshot | null {
-  const source = unwrap(input);
+export function normalise(input: unknown): Snapshot | null {
+  const source = Array.isArray(input)
+    ? { habits: input, logs: [] as unknown[] }
+    : isRecord(input) && Array.isArray(input['habits'])
+      ? {
+          habits: input['habits'],
+          logs: [input['logs'], input['entries'], input['log']].find(Array.isArray) ?? [],
+        }
+      : null;
   if (source === null) return null;
 
   const habits: Habit[] = [];
+  const logs: HabitLog[] = [];
   const ids = new Set<string>();
   const names = new Set<string>();
-
-  for (const candidate of source.habits) {
-    const habit = readHabit(candidate);
-    if (habit === null || ids.has(habit.id)) continue;
-    const name = habit.name.toLocaleLowerCase();
-    if (names.has(name)) continue;
-    ids.add(habit.id);
-    names.add(name);
-    habits.push(habit);
-  }
-
-  const entries: HabitLogEntry[] = [];
   const seen = new Set<string>();
 
-  for (const candidate of source.entries) {
-    const entry = readEntry(candidate);
-    if (entry === null || !ids.has(entry.habitId)) continue;
-    const key = `${entry.habitId}@${entry.day}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    entries.push(entry);
-  }
-
-  return { version: SCHEMA_VERSION, habits, entries };
-}
-
-/** Pull habits and entries out of whichever historical shape this is. */
-function unwrap(input: unknown): { habits: unknown[]; entries: unknown[] } | null {
-  if (Array.isArray(input)) return { habits: input, entries: embedded(input) };
-  if (!isRecord(input)) return null;
-
-  const habits = input['habits'];
-  if (!Array.isArray(habits)) return null;
-
-  const listed = input['entries'] ?? input['log'];
-  return {
-    habits,
-    entries: [...(Array.isArray(listed) ? listed : []), ...embedded(habits)],
+  const push = (habitId: string, day: unknown): void => {
+    if (!isValidDayKey(day) || !ids.has(habitId) || seen.has(`${habitId}@${day}`)) return;
+    seen.add(`${habitId}@${day}`);
+    logs.push({ habitId, day });
   };
-}
 
-/** Older records kept completion days on the habit itself. */
-function embedded(habits: readonly unknown[]): unknown[] {
-  const entries: unknown[] = [];
-  for (const habit of habits) {
-    if (!isRecord(habit)) continue;
-    const id = str(habit['id']);
-    const days = habit['dates'] ?? habit['completions'] ?? habit['days'];
-    if (id === null || !Array.isArray(days)) continue;
-    for (const day of days) entries.push({ habitId: id, day, loggedAt: habit['createdAt'] });
+  for (const raw of source.habits) {
+    if (!isRecord(raw)) continue;
+    const id = str(raw['id']);
+    const name = (str(raw['name']) ?? str(raw['title']) ?? '').trim().replace(/\s+/g, ' ').slice(0, 60);
+    if (id === null || name === '' || ids.has(id) || names.has(name.toLowerCase())) continue;
+    ids.add(id);
+    names.add(name.toLowerCase());
+    const named = str(raw['ink']) ?? str(raw['color']);
+    habits.push({
+      id,
+      name,
+      ink: INKS.find((i) => i === named) ?? INKS[habits.length % INKS.length] ?? 'oxblood',
+      createdAt: num(raw['createdAt']),
+    });
+    // Older records kept completion days on the habit itself.
+    const own = [raw['days'], raw['dates'], raw['completions']].find(Array.isArray);
+    if (own !== undefined) for (const day of own) push(id, day);
   }
-  return entries;
-}
 
-function readHabit(input: unknown): Habit | null {
-  if (!isRecord(input)) return null;
+  for (const raw of source.logs) {
+    if (!isRecord(raw)) continue;
+    const habitId = str(raw['habitId']) ?? str(raw['habit']);
+    if (habitId !== null) push(habitId, raw['day'] ?? raw['date']);
+  }
 
-  const id = str(input['id']);
-  const raw = str(input['name']) ?? str(input['title']);
-  if (id === null || raw === null) return null;
-
-  const name = raw.trim().replace(/\s+/g, ' ').slice(0, MAX_NAME);
-  if (name === '') return null;
-
-  const named = str(input['ink']) ?? str(input['color']);
-  const ink = INKS.find((known) => known === named) ?? inkFor(id);
-
-  return { id, name, ink, createdAt: num(input['createdAt']) ?? num(input['created']) ?? 0 };
-}
-
-function readEntry(input: unknown): HabitLogEntry | null {
-  if (!isRecord(input)) return null;
-
-  const habitId = str(input['habitId']) ?? str(input['habit']);
-  const day = str(input['day']) ?? str(input['date']);
-  if (habitId === null || day === null || !isValidDayKey(day)) return null;
-
-  return { habitId, day, loggedAt: num(input['loggedAt']) ?? 0 };
-}
-
-/** Deterministic ink for records that predate the colour field. */
-function inkFor(id: string): HabitInkName {
-  let hash = 0;
-  for (let index = 0; index < id.length; index += 1) hash = (hash * 31 + id.charCodeAt(index)) % 997;
-  return INKS[hash % INKS.length] ?? 'oxblood';
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function str(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() !== '' ? value : null;
-}
-
-function num(value: unknown): number | null {
-  const parsed = typeof value === 'string' ? Number(value) : value;
-  return typeof parsed === 'number' && Number.isFinite(parsed) ? parsed : null;
+  return { habits, logs };
 }

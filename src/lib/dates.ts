@@ -1,140 +1,89 @@
 import type { DayKey } from '../types';
 
 /**
- * Local-calendar date helpers.
- *
- * The ledger is a record of *local* days: a habit done at 23:58 belongs to that
- * evening, not to the following UTC morning. Every function here therefore works
- * on the viewer's own calendar components and never on UTC offsets, and day
- * arithmetic goes through `Date.UTC` on those components so a daylight-saving
- * shift can never add or drop a day.
+ * Local-calendar helpers. A habit marked at 23:58 belongs to that evening, so
+ * every key is built from local components, and day arithmetic runs over those
+ * components (never elapsed hours) so a clock change cannot add or drop a day.
  */
 
-const DAY_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const MILLISECONDS_PER_DAY = 86_400_000;
+const PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const INITIALS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'] as const;
 
-const WEEKDAY_INITIALS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'] as const;
+const pad = (n: number): string => (n < 10 ? `0${n}` : `${n}`);
 
-function pad(value: number): string {
-  return value < 10 ? `0${value}` : String(value);
+export function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-/** Midnight at the start of the local day containing `date`. */
-export function startOfLocalDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
-}
-
-/** The local calendar day `date` falls on, as `YYYY-MM-DD`. */
 export function toDayKey(date: Date): DayKey {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-/** Today's key for a given clock reading. */
-export function todayKey(now: Date): DayKey {
-  return toDayKey(now);
-}
+export const todayKey = (now: Date): DayKey => toDayKey(now);
 
-/** True when `value` is a well-formed key naming a real calendar day. */
-export function isValidDayKey(value: unknown): value is DayKey {
-  if (typeof value !== 'string' || !DAY_KEY_PATTERN.test(value)) return false;
-  const parsed = parseDayKey(value);
-  return parsed !== null && toDayKey(parsed) === value;
-}
-
-/** A key back to local midnight, or `null` when the key is not a real day. */
 export function parseDayKey(key: DayKey): Date | null {
-  if (!DAY_KEY_PATTERN.test(key)) return null;
-  const year = Number(key.slice(0, 4));
-  const month = Number(key.slice(5, 7));
-  const day = Number(key.slice(8, 10));
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-  const date = new Date(year, month - 1, day, 0, 0, 0, 0);
-  if (date.getMonth() !== month - 1 || date.getDate() !== day) return null;
-  return date;
+  if (!PATTERN.test(key)) return null;
+  const [y, m, d] = [+key.slice(0, 4), +key.slice(5, 7), +key.slice(8, 10)];
+  const date = new Date(y, m - 1, d);
+  return date.getMonth() === m - 1 && date.getDate() === d ? date : null;
 }
 
-/** The same day moved by `delta` calendar days, daylight-saving safe. */
+export function isValidDayKey(value: unknown): value is DayKey {
+  return typeof value === 'string' && parseDayKey(value) !== null;
+}
+
+/** The same day moved by `delta` calendar days, clock-change safe. */
 export function shiftDay(key: DayKey, delta: number): DayKey {
   const date = parseDayKey(key);
-  if (date === null) return key;
-  return toDayKey(new Date(date.getFullYear(), date.getMonth(), date.getDate() + delta));
+  return date === null
+    ? key
+    : toDayKey(new Date(date.getFullYear(), date.getMonth(), date.getDate() + delta));
 }
 
 /** Whole calendar days from `from` to `to`; negative when `to` is earlier. */
 export function daysBetween(from: DayKey, to: DayKey): number {
-  const start = parseDayKey(from);
-  const end = parseDayKey(to);
-  if (start === null || end === null) return Number.NaN;
-  const startUtc = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
-  const endUtc = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
-  return Math.round((endUtc - startUtc) / MILLISECONDS_PER_DAY);
+  const a = parseDayKey(from);
+  const b = parseDayKey(to);
+  if (a === null || b === null) return NaN;
+  const ms =
+    Date.UTC(b.getFullYear(), b.getMonth(), b.getDate()) -
+    Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+  return Math.round(ms / 864e5);
 }
 
 /** Monday-first weekday position, 0 through 6. */
-export function weekdayIndex(key: DayKey): number {
+export function weekday(key: DayKey): number {
   const date = parseDayKey(key);
-  if (date === null) return 0;
-  return (date.getDay() + 6) % 7;
+  return date === null ? 0 : (date.getDay() + 6) % 7;
 }
 
-/** Single-letter column head, e.g. `W` for Wednesday. */
-export function weekdayInitial(index: number): string {
-  return WEEKDAY_INITIALS[((index % 7) + 7) % 7] ?? '?';
-}
+export const initial = (index: number): string => INITIALS[index % 7] ?? '';
 
-/** The `count` most recent days ending on `endKey`, oldest first. */
-export function recentDays(endKey: DayKey, count: number): DayKey[] {
-  const days: DayKey[] = [];
-  for (let offset = count - 1; offset >= 0; offset -= 1) {
-    days.push(shiftDay(endKey, -offset));
-  }
-  return days;
+/** The `count` most recent days ending on `end`, oldest first. */
+export function recentDays(end: DayKey, count: number): DayKey[] {
+  return Array.from({ length: count }, (_, i) => shiftDay(end, i - count + 1));
 }
 
 /** Every day of `anchor`'s month padded to whole Monday-first weeks. */
 export function monthGrid(anchor: DayKey): DayKey[] {
   const date = parseDayKey(anchor);
   if (date === null) return [];
-  const first = new Date(date.getFullYear(), date.getMonth(), 1);
-  const firstKey = toDayKey(first);
-  const gridStart = shiftDay(firstKey, -weekdayIndex(firstKey));
-  const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-  const cellsNeeded = weekdayIndex(firstKey) + daysInMonth;
-  const totalCells = Math.ceil(cellsNeeded / 7) * 7;
-
-  const grid: DayKey[] = [];
-  for (let offset = 0; offset < totalCells; offset += 1) {
-    grid.push(shiftDay(gridStart, offset));
-  }
-  return grid;
+  const first = toDayKey(new Date(date.getFullYear(), date.getMonth(), 1));
+  const lead = weekday(first);
+  const length = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  const cells = Math.ceil((lead + length) / 7) * 7;
+  return Array.from({ length: cells }, (_, i) => shiftDay(first, i - lead));
 }
 
-/** `true` when both keys land in the same calendar month. */
-export function isSameMonth(a: DayKey, b: DayKey): boolean {
-  return a.slice(0, 7) === b.slice(0, 7);
-}
-
-/** Day-of-month as a number, e.g. `9` for `2026-03-09`. */
-export function dayOfMonth(key: DayKey): number {
-  return Number(key.slice(8, 10));
-}
+export const sameMonth = (a: DayKey, b: DayKey): boolean => a.slice(0, 7) === b.slice(0, 7);
+export const dayOfMonth = (key: DayKey): number => +key.slice(8, 10);
 
 function format(key: DayKey, options: Intl.DateTimeFormatOptions): string {
   const date = parseDayKey(key);
   return date === null ? key : date.toLocaleDateString(undefined, options);
 }
 
-/** Long human date, e.g. `Thursday 9 July 2026`. */
-export function formatLongDate(key: DayKey): string {
-  return format(key, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-}
-
-/** Compact human date, e.g. `9 Jul`. */
-export function formatShortDate(key: DayKey): string {
-  return format(key, { day: 'numeric', month: 'short' });
-}
-
-/** Month and year heading, e.g. `July 2026`. */
-export function formatMonthTitle(key: DayKey): string {
-  return format(key, { month: 'long', year: 'numeric' });
-}
+export const longDate = (k: DayKey): string =>
+  format(k, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+export const shortDate = (k: DayKey): string => format(k, { day: 'numeric', month: 'short' });
+export const monthTitle = (k: DayKey): string => format(k, { month: 'long', year: 'numeric' });

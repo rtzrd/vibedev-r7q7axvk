@@ -1,86 +1,62 @@
-import type { LedgerActions } from '../types';
-import { attr, data, el, glyph } from '../lib/dom';
-import { MAX_HABIT_NAME_LENGTH, remainingCharacters } from '../lib/validation';
+import type { Actions } from '../types';
+import { attr, data, el, mark } from '../lib/dom';
+import { MAX_NAME, charsLeft } from '../lib/validation';
 
-const FIELD = 'habit-name';
-const ERROR = 'habit-name-error';
-const HINT = 'habit-name-hint';
-
-/** A form that keeps its own field alive across re-renders. */
-export interface HabitFormHandle {
+export interface FormHandle {
   readonly element: HTMLFormElement;
-  showError(message: string | null): void;
-  focusField(): void;
+  error(message: string | null): void;
+  focus(): void;
   reset(): void;
 }
 
-/**
- * The intake line. One real label, one field, one message slot directly beneath
- * it, and a running count of the characters still available.
- */
-export function HabitForm(actions: LedgerActions): HabitFormHandle {
-  const input = attr(el('input', 'field__input'), {
-    id: FIELD,
-    name: FIELD,
+/** One real label, one field, and its message slot directly beneath it. */
+export function HabitForm(actions: Actions): FormHandle {
+  const input = attr(el('input', 'input'), {
+    id: 'name',
     type: 'text',
     required: true,
-    maxlength: MAX_HABIT_NAME_LENGTH,
+    maxlength: MAX_NAME,
     autocomplete: 'off',
-    spellcheck: 'false',
     placeholder: 'Read ten pages',
-    'aria-describedby': `${HINT} ${ERROR}`,
+    'aria-describedby': 'hint error',
     'aria-invalid': 'false',
   });
 
-  const counter = attr(el('span', 'field__counter', String(MAX_HABIT_NAME_LENGTH)), {
-    'aria-hidden': 'true',
+  const counter = attr(el('span', 'term', String(MAX_NAME)), { 'aria-hidden': 'true' });
+  const error = data(attr(el('p', 'error'), { id: 'error', role: 'alert' }), { on: 'false' });
+  const submit = attr(el('button', 'button', mark('', '✚'), 'Open entry'), {
+    type: 'submit',
+    disabled: true,
   });
 
-  const error = data(attr(el('p', 'field__error'), { id: ERROR, role: 'alert' }), {
-    visible: 'false',
-  });
-
-  const submit = attr(
-    el('button', 'button button--primary', glyph('button__glyph', '✚'), el('span', undefined, 'Open entry')),
-    { type: 'submit', disabled: true },
-  );
-
-  function sync(): void {
-    const left = remainingCharacters(input.value);
+  const sync = (): void => {
+    const left = charsLeft(input.value);
     counter.textContent = String(left);
     counter.dataset['low'] = String(left <= 10);
     submit.disabled = input.value.trim() === '';
-  }
+  };
 
-  function showError(message: string | null): void {
+  const show = (message: string | null): void => {
     error.textContent = message ?? '';
-    error.dataset['visible'] = String(message !== null);
+    error.dataset['on'] = String(message !== null);
     input.setAttribute('aria-invalid', String(message !== null));
-  }
+  };
 
   input.addEventListener('input', () => {
     sync();
-    if (error.dataset['visible'] === 'true') showError(null);
+    if (error.dataset['on'] === 'true') show(null);
   });
 
   const form = attr(
     el(
       'form',
-      'habit-form',
+      'form',
       el(
         'div',
         'field',
-        el(
-          'div',
-          'field__row',
-          attr(el('label', 'field__label', 'Habit name'), { for: FIELD }),
-          counter,
-        ),
+        el('div', 'row', attr(el('label', 'term', 'Habit name'), { for: 'name' }), counter),
         input,
-        attr(
-          el('p', 'field__hint', `Between 2 and ${MAX_HABIT_NAME_LENGTH} characters, and unique.`),
-          { id: HINT },
-        ),
+        attr(el('p', 'term', `Between 2 and ${MAX_NAME} characters, and unique.`), { id: 'hint' }),
         error,
       ),
       submit,
@@ -90,15 +66,14 @@ export function HabitForm(actions: LedgerActions): HabitFormHandle {
 
   form.addEventListener('submit', (event) => {
     event.preventDefault();
-    actions.addHabit(input.value);
+    actions.add(input.value);
   });
 
   sync();
-
   return {
     element: form,
-    showError,
-    focusField: () => input.focus(),
+    error: show,
+    focus: () => input.focus(),
     reset: () => {
       input.value = '';
       sync();
