@@ -1,68 +1,36 @@
+/** A calendar day in the shopper's own timezone, `YYYY-MM-DD`. */
 export type DayKey = string;
-export type Ink = 'oxblood' | 'verdigris' | 'brass' | 'indigo' | 'plum';
-export type StreakStatus = 'unstarted' | 'active' | 'at-risk' | 'broken';
-export type Phase = 'pending' | 'ready' | 'failed';
-export interface Habit {
+
+/** Green: eat soon. Yellow: getting old. Red: toss it. */
+export type Freshness = 'fresh' | 'aging' | 'stale';
+
+export interface Snack {
   id: string;
   name: string;
-  ink: Ink;
-  createdAt: number;
+  bought: DayKey;
+  shelfLife: number;
 }
-export interface HabitLog {
-  habitId: string;
-  day: DayKey;
-}
-export interface StreakResult {
-  current: number;
-  longest: number;
-  status: StreakStatus;
-  today: boolean;
-  total: number;
-}
-export interface Milestone {
-  days: number;
-  seal: string;
-  label: string;
-}
-export interface MilestoneProgress {
-  earned: Milestone[];
-  next: Milestone | null;
-  left: number;
+
+export interface Verdict {
+  status: Freshness;
+  daysLeft: number;
+  daysKept: number;
   ratio: number;
+  note: string;
 }
-export interface CalendarDay {
-  day: DayKey;
-  n: number;
-  state: 'done' | 'missed' | 'future' | 'before';
-  isToday: boolean;
-  outside: boolean;
+
+export interface Shelf {
+  snack: Snack;
+  verdict: Verdict;
 }
-export interface Snapshot {
-  habits: Habit[];
-  logs: HabitLog[];
-}
-export interface Failure {
-  kind: 'unavailable' | 'parse' | 'shape' | 'quota' | 'unknown';
-  message: string;
-}
-export type Result<T> = { ok: true; value: T } | { ok: false; error: Failure };
-export type Validation = { valid: true; value: string } | { valid: false; message: string };
-export interface AppState {
+
+export type Check = { ok: true; value: Snack } | { ok: false; message: string };
+export type Phase = 'loading' | 'ready' | 'failed';
+
+export interface State {
   phase: Phase;
-  habits: Habit[];
-  logs: HabitLog[];
+  snacks: Snack[];
   formError: string | null;
   notice: string | null;
   saveError: string | null;
-}
-export interface Summary {
-  habit: Habit;
-  streak: StreakResult;
-  seals: MilestoneProgress;
-  days: ReadonlySet<DayKey>;
-}
-export interface Actions {
-  add(name: string): void;
-  toggle(id: string): void;
-  remove(id: string): void;
 }

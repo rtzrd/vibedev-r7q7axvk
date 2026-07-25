@@ -8,7 +8,7 @@ export function el<K extends keyof HTMLElementTagNameMap>(
 ): HTMLElementTagNameMap[K] {
   const n = document.createElement(tag);
   if (cls) n.className = cls;
-  fill(n, kids);
+  append(n, kids);
   return n;
 }
 
@@ -20,13 +20,8 @@ export function attr<T extends Element>(n: T, a: Attrs): T {
   return n;
 }
 
-export function data<T extends HTMLElement>(n: T, d: Record<string, string>): T {
-  for (const k in d) n.dataset[k] = d[k];
-  return n;
-}
-
-/** Replace a node's children. User text goes in as text, never as markup. */
-export function fill(parent: Node, kids: readonly Kid[]): void {
+/** Text arrives as a text node. No markup is ever parsed from user input. */
+export function append(parent: Node, kids: readonly Kid[]): void {
   for (const k of kids) {
     if (k !== null) parent.appendChild(typeof k === 'string' ? document.createTextNode(k) : k);
   }
@@ -34,11 +29,8 @@ export function fill(parent: Node, kids: readonly Kid[]): void {
 
 export function empty(parent: Element, kids: readonly Kid[]): void {
   while (parent.firstChild) parent.removeChild(parent.firstChild);
-  fill(parent, kids);
+  append(parent, kids);
 }
 
 /** Out of sight, still read aloud. */
 export const sr = (t: string): HTMLElement => el('span', 'sr', t);
-/** Decorative glyph, hidden from the accessibility tree. */
-export const mark = (cls: string, g: string): HTMLElement =>
-  attr(el('span', cls, g), { 'aria-hidden': 'true' });
