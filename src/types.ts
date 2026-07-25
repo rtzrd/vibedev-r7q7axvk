@@ -1,9 +1,7 @@
 export type DayKey = string;
 export type Ink = 'oxblood' | 'verdigris' | 'brass' | 'indigo' | 'plum';
 export type StreakStatus = 'unstarted' | 'active' | 'at-risk' | 'broken';
-export type View = 'month' | 'recent';
 export type Phase = 'pending' | 'ready' | 'failed';
-
 export interface Habit {
   id: string;
   name: string;
@@ -49,12 +47,10 @@ export interface Failure {
 }
 export type Result<T> = { ok: true; value: T } | { ok: false; error: Failure };
 export type Validation = { valid: true; value: string } | { valid: false; message: string };
-
 export interface AppState {
   phase: Phase;
   habits: Habit[];
   logs: HabitLog[];
-  view: View;
   formError: string | null;
   notice: string | null;
   saveError: string | null;
@@ -69,5 +65,4 @@ export interface Actions {
   add(name: string): void;
   toggle(id: string): void;
   remove(id: string): void;
-  setView(view: View): void;
 }

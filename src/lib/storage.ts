@@ -1,10 +1,6 @@
 import type { Failure, Habit, HabitLog, Ink, Result, Snapshot } from '../types';
 import { isDay } from './dates';
 
-// localStorage can throw simply by being touched, it can be full, and what
-// comes back is untrusted text possibly written by an older version. Nothing
-// here throws: failures come back as values so the UI can show them.
-
 export const KEY = 'daily-ledger/v1';
 const INKS: Ink[] = ['oxblood', 'verdigris', 'brass', 'indigo', 'plum'];
 
@@ -30,6 +26,9 @@ export const local = (): StorageLike | null => {
   }
 };
 
+// localStorage can throw simply by being touched, it can be full, and what
+// comes back is untrusted text possibly written by an older version. Nothing
+// here throws: failures come back as values so the UI can show them.
 export function createStorage(resolve: () => StorageLike | null): Store {
   return {
     read() {
@@ -76,24 +75,17 @@ const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? 
 
 /**
  * Coerce anything into a trustworthy snapshot, or null if it is beyond saving.
- * Accepts the current shape and the earlier ones: a bare array of habits,
- * habits carrying their own day list, and the older field names.
+ * Accepts a bare array of habits and the older field names as well as the
+ * current shape; days that are not real dates and orphan logs are dropped.
  */
 export function normalise(input: unknown): Snapshot | null {
-  const src = Array.isArray(input)
-    ? { habits: input, logs: [] as unknown[] }
-    : rec(input) && Array.isArray(input['habits'])
-      ? {
-          habits: input['habits'],
-          logs: [input['logs'], input['entries'], input['log']].find(Array.isArray) ?? [],
-        }
-      : null;
-  if (!src) return null;
+  const habitsIn = Array.isArray(input) ? input : rec(input) ? input['habits'] : null;
+  if (!Array.isArray(habitsIn)) return null;
+  const logsIn = rec(input) ? [input['logs'], input['entries'], input['log']].find(Array.isArray) : null;
 
   const habits: Habit[] = [];
   const logs: HabitLog[] = [];
   const ids = new Set<string>();
-  const names = new Set<string>();
   const seen = new Set<string>();
 
   const push = (habitId: string, day: unknown): void => {
@@ -102,13 +94,12 @@ export function normalise(input: unknown): Snapshot | null {
     logs.push({ habitId, day });
   };
 
-  for (const raw of src.habits) {
+  for (const raw of habitsIn) {
     if (!rec(raw)) continue;
     const id = str(raw['id']);
     const name = (str(raw['name']) ?? str(raw['title']) ?? '').trim().replace(/\s+/g, ' ').slice(0, 60);
-    if (!id || !name || ids.has(id) || names.has(name.toLowerCase())) continue;
+    if (!id || !name || ids.has(id)) continue;
     ids.add(id);
-    names.add(name.toLowerCase());
     const ink = str(raw['ink']) ?? str(raw['color']);
     habits.push({
       id,
@@ -116,15 +107,15 @@ export function normalise(input: unknown): Snapshot | null {
       ink: INKS.find((i) => i === ink) ?? INKS[habits.length % 5] ?? 'oxblood',
       createdAt: typeof raw['createdAt'] === 'number' ? raw['createdAt'] : 0,
     });
-    // Older records kept the completion days on the habit itself.
-    const own = [raw['days'], raw['dates'], raw['completions']].find(Array.isArray);
+    const own = [raw['days'], raw['dates']].find(Array.isArray);
     if (own) for (const d of own) push(id, d);
   }
 
-  for (const raw of src.logs) {
-    if (!rec(raw)) continue;
-    const id = str(raw['habitId']) ?? str(raw['habit']);
-    if (id) push(id, raw['day'] ?? raw['date']);
+  for (const raw of logsIn ?? []) {
+    if (rec(raw)) {
+      const id = str(raw['habitId']) ?? str(raw['habit']);
+      if (id) push(id, raw['day'] ?? raw['date']);
+    }
   }
 
   return { habits, logs };

@@ -1,16 +1,14 @@
-import './styles/tokens.css';
 import './styles/app.css';
 import { createLedger } from './state/store';
-import { mountApp } from './render/renderApp';
-import { attr, el, fill } from './lib/dom';
+import { mountApp } from './ui/app';
+import { attr, el, empty } from './ui/dom';
 
-/** Anything that fails before the first render is written into the page. */
 const root = document.getElementById('app');
 if (root) {
   try {
     mountApp(root, createLedger());
   } catch (e) {
-    fill(root, [
+    empty(root, [
       attr(
         el(
           'section',

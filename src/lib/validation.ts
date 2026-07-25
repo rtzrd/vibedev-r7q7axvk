@@ -1,10 +1,7 @@
 import type { Habit, Validation } from '../types';
-
 export const MAX = 60;
 export const tidy = (n: string): string => n.trim().replace(/\s+/g, ' ');
 const key = (n: string): string => tidy(n).toLowerCase();
-
-/** True when the text carries a code point no ledger line should hold. */
 export function unprintable(text: string): boolean {
   for (let i = 0; i < text.length; i++) {
     const c = text.charCodeAt(i);
@@ -12,7 +9,6 @@ export function unprintable(text: string): boolean {
   }
   return false;
 }
-
 export function validateName(raw: string, existing: readonly Habit[]): Validation {
   const name = tidy(raw);
   if (!name) return { valid: false, message: 'Give the habit a name before adding it.' };
@@ -28,5 +24,4 @@ export function validateName(raw: string, existing: readonly Habit[]): Validatio
     ? { valid: false, message: `“${clash.name}” is already in the ledger.` }
     : { valid: true, value: name };
 }
-
 export const charsLeft = (raw: string): number => MAX - tidy(raw).length;
