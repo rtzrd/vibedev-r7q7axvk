@@ -1,5 +1,4 @@
 /* A ruled account book: hairline rules, oxblood serif, figures set in mono. */
-
 *,
 *::before,
 *::after {
@@ -28,15 +27,10 @@ h4 {
   letter-spacing: -0.015em;
 }
 p,
-dd,
-ul,
-ol,
-dl {
-  margin: 0;
-  padding: 0;
-}
 ul,
 ol {
+  margin: 0;
+  padding: 0;
   list-style: none;
 }
 ::selection {
@@ -49,30 +43,25 @@ ol {
   overflow: hidden;
   clip-path: inset(50%);
 }
-
-/* Every small label, column head and legend shares one voice. */
 .term,
-.legend,
-.colophon,
 .tab,
 .button,
 .stamp,
-.remove {
+.remove,
+.colophon,
+.heads {
   font-family: var(--mono);
   font-size: var(--fx);
   letter-spacing: var(--tr);
   text-transform: uppercase;
   color: var(--ink-3);
 }
-.value,
-.figure__n,
+.n,
 .day,
-.count,
 time {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
 }
-
 :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 3px;
@@ -88,13 +77,9 @@ time {
   background: var(--ink);
   color: var(--paper-2);
   font-family: var(--mono);
-  font-size: var(--fs);
+  font-size: var(--fx);
   text-decoration: none;
   transition: transform var(--t2) var(--ease);
-}
-.skip:hover,
-.skip:active {
-  background: var(--accent);
 }
 .skip:focus-visible {
   transform: none;
@@ -112,8 +97,6 @@ time {
   gap: var(--s7);
   min-width: 0;
 }
-
-/* --- Masthead --- */
 .masthead {
   display: grid;
   gap: var(--s5);
@@ -130,64 +113,40 @@ time {
   font-variation-settings: 'SOFT' 60, 'WONK' 1;
 }
 .title__x {
-  color: var(--accent);
+  color: var(--oxblood);
   font-style: italic;
   font-variation-settings: 'SOFT' 100, 'WONK' 1;
 }
 .date {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s3);
-}
-.date__d {
-  font-size: var(--fs);
+  font-size: var(--f0);
   text-transform: none;
   letter-spacing: 0;
   color: var(--ink-2);
 }
-.tallies {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
-  gap: var(--s5);
-  padding-top: var(--s4);
-  border-top: 1px solid var(--rule);
-}
-.tallies:empty,
-.warn-slot:empty,
-.live:empty {
-  display: none;
-}
-.pair {
-  display: grid;
-  gap: var(--s1);
-  align-content: start;
-}
-.value {
-  font-size: var(--f2);
-}
 .live {
   min-height: 1.4em;
   font-family: var(--mono);
-  font-size: var(--fs);
+  font-size: var(--fx);
   color: var(--verdigris);
 }
-
+.live:empty {
+  display: none;
+}
 .h2 {
   font-size: var(--f3);
   font-variation-settings: 'SOFT' 40, 'WONK' 1;
 }
 .body {
-  max-width: var(--measure);
+  max-width: 34rem;
   color: var(--ink-2);
   font-size: var(--f1);
 }
 
-/* --- Intake --- */
 .intake {
   padding: var(--s6);
   background: var(--paper-2);
   border: 1px solid var(--edge);
-  border-left: 2px solid var(--accent);
+  border-left: 2px solid var(--oxblood);
   border-radius: var(--r2);
   box-shadow: var(--sh1);
 }
@@ -228,7 +187,7 @@ time {
 .input:focus-visible {
   outline: 0;
   background: var(--wash);
-  border-bottom-color: var(--accent);
+  border-bottom-color: var(--oxblood);
   box-shadow: 0 3px 0 -1px var(--focus);
 }
 .input:disabled {
@@ -246,7 +205,7 @@ time {
   display: grid;
   grid-template-rows: 0fr;
   font-family: var(--mono);
-  font-size: var(--fs);
+  font-size: var(--fx);
   color: var(--alarm);
   opacity: 0;
   transition:
@@ -258,7 +217,6 @@ time {
   opacity: 1;
 }
 
-/* --- Controls --- */
 .button,
 .stamp,
 .remove,
@@ -274,7 +232,7 @@ time {
     color var(--t2) var(--ease),
     border-color var(--t2) var(--ease),
     transform var(--t3) var(--pop),
-    box-shadow var(--t2) var(--ease);
+    box-shadow var(--t1) var(--ease);
 }
 .button:disabled,
 .stamp:disabled,
@@ -300,12 +258,11 @@ time {
   border-radius: var(--pill);
   background: var(--ink);
   color: var(--paper-2);
-  font-size: var(--fs);
   box-shadow: var(--sh1);
 }
 .button:hover {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--oxblood);
+  border-color: var(--oxblood);
   transform: translateY(-1px);
   box-shadow: var(--sh4);
 }
@@ -320,20 +277,14 @@ time {
 }
 .button--ghost:hover {
   background: var(--wash);
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--oxblood);
+  color: var(--oxblood);
 }
-
 .entries__head {
   display: grid;
   gap: var(--s5);
   padding-bottom: var(--s4);
   border-bottom: 1px solid var(--rule);
-}
-.viewbar {
-  display: flex;
-  align-items: center;
-  gap: var(--s4);
 }
 .tabs {
   display: inline-flex;
@@ -349,7 +300,7 @@ time {
   color: var(--ink-2);
 }
 .tab:hover {
-  color: var(--accent);
+  color: var(--oxblood);
 }
 .tab[aria-checked='true'] {
   background: var(--paper-2);
@@ -357,7 +308,6 @@ time {
   box-shadow: var(--sh1);
 }
 
-/* --- The five inks a habit can be written in --- */
 [data-ink='oxblood'] {
   --tint: var(--oxblood);
 }
@@ -374,7 +324,6 @@ time {
   --tint: var(--plum);
 }
 
-/* --- Cards --- */
 .cards {
   display: grid;
   gap: var(--s6);
@@ -403,7 +352,7 @@ time {
 }
 .card__head {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: var(--s4);
   padding-bottom: var(--s4);
   border-bottom: 1px solid var(--rule);
@@ -420,26 +369,20 @@ time {
   overflow-wrap: anywhere;
 }
 .remove {
-  grid-column: 2;
-  justify-self: end;
-  margin-top: var(--s2);
-  gap: var(--s1);
+  align-self: start;
   padding: var(--s1) var(--s3);
   border: 1px solid transparent;
   border-radius: var(--pill);
+  font-size: var(--f1);
+  line-height: 1;
 }
 .remove:hover {
   color: var(--alarm);
   border-color: var(--alarm);
 }
-.remove[data-armed='true'] {
-  background: var(--alarm);
-  border-color: var(--alarm);
-  color: var(--paper-2);
-}
 .card__body,
 .tally,
-.record__col {
+.col {
   display: grid;
   gap: var(--s5);
   align-content: start;
@@ -448,8 +391,6 @@ time {
 .card__body {
   gap: var(--s6);
 }
-
-/* --- Streak --- */
 .streak {
   display: grid;
   gap: var(--s2);
@@ -464,7 +405,7 @@ time {
 .figure[data-status='unstarted'] {
   color: var(--ink-3);
 }
-.figure__n {
+.n {
   font-size: var(--f5);
   font-weight: 700;
   line-height: 0.95;
@@ -477,22 +418,12 @@ time {
 .caption[data-status='at-risk'] {
   color: var(--alarm);
 }
-.stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--s4);
-  padding-top: var(--s3);
-  border-top: 1px solid var(--rule);
-}
-
-/* --- Stamp --- */
 .stamp {
   justify-self: start;
   padding: var(--s4) var(--s6);
   border: 2px dashed var(--tint);
   border-radius: var(--pill);
   color: var(--tint);
-  font-size: var(--fs);
 }
 .stamp:hover {
   background: var(--wash);
@@ -509,11 +440,9 @@ time {
   transform: rotate(-1.5deg);
   box-shadow: var(--sh3);
 }
-
-/* --- Seals and gauge --- */
 .seals {
   display: grid;
-  gap: var(--s4);
+  gap: var(--s3);
 }
 .seals__row {
   display: flex;
@@ -522,61 +451,32 @@ time {
 .seal {
   display: grid;
   place-items: center;
-  width: 3.25rem;
-  height: 3.25rem;
+  width: 2.75rem;
+  height: 2.75rem;
   border: 1px dashed var(--rule);
   border-radius: 50%;
   font-family: var(--mono);
+  font-size: var(--fx);
+  font-weight: 700;
   color: var(--ink-3);
   transition: transform var(--t3) var(--pop);
 }
-.seal__n {
-  font-size: var(--fs);
-  font-weight: 700;
-  line-height: 1;
-}
 .seal[data-state='next'] {
-  border-color: var(--accent);
+  border-color: var(--oxblood);
   background: var(--wash);
   color: var(--ink-2);
 }
 .seal[data-state='earned'] {
   border: 1px solid var(--brass);
   color: var(--paper-2);
-  background:
-    radial-gradient(circle at 34% 28%, rgb(255 255 255 / 0.42), transparent 52%),
-    radial-gradient(circle at 70% 76%, rgb(0 0 0 / 0.28), transparent 58%), var(--brass);
+  background: var(--brass);
   box-shadow: var(--sh3);
 }
 .seal[data-state='earned']:hover {
   transform: rotate(-4deg) scale(1.06);
 }
-.gauge {
-  display: grid;
-  gap: var(--s2);
-}
-.track {
-  height: 6px;
-  border: 1px solid var(--rule);
-  border-radius: var(--pill);
-  background: repeating-linear-gradient(to right, var(--rule) 0 1px, transparent 1px 7.14%);
-  overflow: hidden;
-}
-.fill {
-  width: var(--fill, 0%);
-  height: 100%;
-  background: var(--tint);
-  transition: width var(--t3) var(--ease);
-}
-.count {
-  color: var(--ink);
-}
-.gauge--done {
-  font-style: italic;
-  color: var(--brass);
-}
 
-/* --- Record: narrow fills the column, wide tightens to fixed squares --- */
+/* Narrow: the month fills its column. Wide: fixed ledger squares. */
 .record {
   display: grid;
   gap: var(--s3);
@@ -588,11 +488,6 @@ time {
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: var(--s1);
   max-width: 26rem;
-}
-.heads {
-  font-family: var(--mono);
-  font-size: var(--fx);
-  color: var(--ink-3);
   text-align: center;
 }
 .day {
@@ -608,19 +503,15 @@ time {
     border-color var(--t3) var(--ease);
 }
 .day[data-state='done'] {
-  background:
-    radial-gradient(circle at 38% 32%, rgb(255 255 255 / 0.25), transparent 60%), var(--tint);
+  background: var(--tint);
   border-color: var(--tint);
   color: var(--paper-2);
 }
-.day[data-state='future'] {
+.day[data-state='future'],
+.day[data-state='before'] {
   border-style: dashed;
   border-color: var(--hair);
   color: var(--rule-2);
-}
-.day[data-state='before'] {
-  border-color: var(--hair);
-  color: var(--rule);
 }
 .day[data-outside='true'] {
   opacity: 0.35;
@@ -635,40 +526,11 @@ time {
   display: flex;
   gap: var(--s1);
   overflow-x: auto;
-  scroll-snap-type: x proximity;
 }
-.band {
-  display: grid;
-  gap: var(--s1);
+.strip .day {
   flex: 0 0 var(--cell);
-  text-align: center;
-  scroll-snap-align: end;
-}
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s3) var(--s5);
-}
-.legend__item {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s1);
-}
-.swatch {
-  width: 0.7rem;
-  height: 0.7rem;
-  border: 1px solid var(--rule);
-  border-radius: var(--r1);
-}
-.swatch[data-state='done'] {
-  background: var(--tint);
-  border-color: var(--tint);
-}
-.swatch[data-state='future'] {
-  border-style: dashed;
 }
 
-/* --- Panels --- */
 .panel {
   display: grid;
   gap: var(--s4);
@@ -682,9 +544,6 @@ time {
   font-size: var(--f4);
   font-variation-settings: 'SOFT' 60, 'WONK' 1;
 }
-.panel--empty {
-  border-left: 2px solid var(--rule-2);
-}
 .panel--error {
   border-style: solid;
   border-color: var(--alarm);
@@ -693,66 +552,14 @@ time {
 .panel--error .term {
   color: var(--alarm);
 }
-.skeleton {
-  display: grid;
-  gap: var(--s4);
-  width: 100%;
-  max-width: var(--measure);
-}
-.skeleton span {
-  height: 0.75rem;
-  border-radius: var(--r1);
-  background: linear-gradient(90deg, var(--paper-3), var(--edge), var(--paper-3));
-  background-size: 220% 100%;
-  animation: sweep 1.6s var(--ease) infinite;
-}
-.skeleton span:nth-child(2) {
-  width: 78%;
-}
-.skeleton span:nth-child(3) {
-  width: 52%;
-}
-@keyframes sweep {
-  from {
-    background-position: 130% 0;
-  }
-  to {
-    background-position: -30% 0;
-  }
-}
-.warn {
-  display: flex;
-  gap: var(--s4);
-  padding: var(--s4) var(--s5);
-  background: var(--wash);
-  border: 1px solid var(--alarm);
-  border-left-width: 2px;
-  border-radius: var(--r2);
-}
-.warn__x {
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 50%;
-  background: var(--alarm);
-  color: var(--paper-2);
-  font-family: var(--mono);
-}
 .colophon {
   display: grid;
   gap: var(--s3);
   padding-top: var(--s5);
   border-top: 1px solid var(--rule);
 }
-.flourish {
-  font-family: var(--serif);
-  font-size: var(--f2);
-  color: var(--accent);
-}
 
-/* ==== 40rem — past a phone: the card splits into tally and record ==== */
+/* Past a phone: the card splits into tally and record. */
 @media (min-width: 40rem) {
   :root {
     --cell: 2.25rem;
@@ -765,13 +572,6 @@ time {
   }
   .card {
     padding: var(--s6);
-  }
-  .card__head {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-  }
-  .remove {
-    grid-column: auto;
-    margin-top: 0;
   }
   .card__body {
     grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr);
@@ -788,7 +588,7 @@ time {
   }
 }
 
-/* ==== 64rem — a desk: the masthead becomes a standing rail ==== */
+/* A desk: the masthead becomes a standing rail. */
 @media (min-width: 64rem) {
   :root {
     --cell: 2.5rem;
@@ -809,9 +609,6 @@ time {
   .title {
     display: grid;
   }
-  .tallies {
-    grid-template-columns: 1fr 1fr;
-  }
   .heads,
   .grid {
     grid-template-columns: repeat(7, var(--cell));
@@ -824,11 +621,10 @@ time {
   }
 }
 
-/* ==== 100rem — a wide screen: entries sit two to a spread ==== */
+/* A wide screen: entries sit two to a spread. */
 @media (min-width: 100rem) {
   :root {
     --rail: 26rem;
-    --cell: 2.25rem;
     --pad: var(--s9);
   }
   .shell {
@@ -851,15 +647,12 @@ time {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 1ms !important;
+  * {
     transition-duration: 1ms !important;
   }
   .stamp:hover,
   .stamp:active,
-  .seal[data-state='earned']:hover,
+  .seal:hover,
   .button:hover {
     transform: none;
   }

@@ -1,9 +1,9 @@
 import type { Actions } from '../types';
 import { attr, data, el, mark } from '../lib/dom';
-import { MAX_NAME, charsLeft } from '../lib/validation';
+import { MAX, charsLeft } from '../lib/validation';
 
 export interface FormHandle {
-  readonly element: HTMLFormElement;
+  element: HTMLFormElement;
   error(message: string | null): void;
   focus(): void;
   reset(): void;
@@ -15,14 +15,13 @@ export function HabitForm(actions: Actions): FormHandle {
     id: 'name',
     type: 'text',
     required: true,
-    maxlength: MAX_NAME,
+    maxlength: MAX,
     autocomplete: 'off',
     placeholder: 'Read ten pages',
     'aria-describedby': 'hint error',
     'aria-invalid': 'false',
   });
-
-  const counter = attr(el('span', 'term', String(MAX_NAME)), { 'aria-hidden': 'true' });
+  const count = attr(el('span', 'term', `${MAX}`), { 'aria-hidden': 'true' });
   const error = data(attr(el('p', 'error'), { id: 'error', role: 'alert' }), { on: 'false' });
   const submit = attr(el('button', 'button', mark('', '✚'), 'Open entry'), {
     type: 'submit',
@@ -31,15 +30,14 @@ export function HabitForm(actions: Actions): FormHandle {
 
   const sync = (): void => {
     const left = charsLeft(input.value);
-    counter.textContent = String(left);
-    counter.dataset['low'] = String(left <= 10);
-    submit.disabled = input.value.trim() === '';
+    count.textContent = `${left}`;
+    count.dataset['low'] = `${left <= 10}`;
+    submit.disabled = !input.value.trim();
   };
-
   const show = (message: string | null): void => {
     error.textContent = message ?? '';
-    error.dataset['on'] = String(message !== null);
-    input.setAttribute('aria-invalid', String(message !== null));
+    error.dataset['on'] = `${message !== null}`;
+    input.setAttribute('aria-invalid', `${message !== null}`);
   };
 
   input.addEventListener('input', () => {
@@ -54,18 +52,17 @@ export function HabitForm(actions: Actions): FormHandle {
       el(
         'div',
         'field',
-        el('div', 'row', attr(el('label', 'term', 'Habit name'), { for: 'name' }), counter),
+        el('div', 'row', attr(el('label', 'term', 'Habit name'), { for: 'name' }), count),
         input,
-        attr(el('p', 'term', `Between 2 and ${MAX_NAME} characters, and unique.`), { id: 'hint' }),
+        attr(el('p', 'term', `Between 2 and ${MAX} characters, and unique.`), { id: 'hint' }),
         error,
       ),
       submit,
     ),
     { novalidate: true },
   );
-
-  form.addEventListener('submit', (event) => {
-    event.preventDefault();
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
     actions.add(input.value);
   });
 

@@ -1,22 +1,22 @@
 import './styles/tokens.css';
 import './styles/app.css';
-import { createStore } from './state/store';
+import { createLedger } from './state/store';
 import { mountApp } from './render/renderApp';
 import { attr, el, fill } from './lib/dom';
 
 /** Anything that fails before the first render is written into the page. */
 const root = document.getElementById('app');
-if (root !== null) {
+if (root) {
   try {
-    mountApp(root, createStore());
-  } catch (error) {
+    mountApp(root, createLedger());
+  } catch (e) {
     fill(root, [
       attr(
         el(
           'section',
           'panel panel--error',
           el('h2', 'panel__t', 'The ledger could not be drawn'),
-          el('p', 'body', error instanceof Error ? error.message : 'No reason was recorded.'),
+          el('p', 'body', e instanceof Error ? e.message : 'No reason was recorded.'),
         ),
         { role: 'alert' },
       ),

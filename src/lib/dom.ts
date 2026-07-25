@@ -1,48 +1,47 @@
-/** Element builders. User text always arrives as a text node, never as markup. */
+// Element builders. User text always arrives as a text node, never as markup.
 
-export type Child = Node | string | null;
+type Child = Node | string | null;
 type Attrs = Record<string, string | number | boolean | null>;
 
 export function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
-  className?: string,
+  cls?: string,
   ...kids: Child[]
 ): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
-  if (className !== undefined) node.className = className;
-  add(node, kids);
-  return node;
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  add(n, kids);
+  return n;
 }
 
-export function attr<T extends Element>(node: T, attrs: Attrs): T {
-  for (const name in attrs) {
-    const value = attrs[name];
-    if (value === null || value === false) continue;
-    node.setAttribute(name, value === true ? '' : String(value));
+export function attr<T extends Element>(n: T, a: Attrs): T {
+  for (const k in a) {
+    const v = a[k];
+    if (v === null || v === false) continue;
+    n.setAttribute(k, v === true ? '' : `${v}`);
   }
-  return node;
+  return n;
 }
 
-export function data<T extends HTMLElement>(node: T, entries: Record<string, string>): T {
-  for (const name in entries) node.dataset[name] = entries[name];
-  return node;
+export function data<T extends HTMLElement>(n: T, d: Record<string, string>): T {
+  for (const k in d) n.dataset[k] = d[k];
+  return n;
 }
 
 export function add(parent: Node, kids: readonly Child[]): void {
-  for (const kid of kids) {
-    if (kid === null) continue;
-    parent.appendChild(typeof kid === 'string' ? document.createTextNode(kid) : kid);
+  for (const k of kids) {
+    if (k === null) continue;
+    parent.appendChild(typeof k === 'string' ? document.createTextNode(k) : k);
   }
 }
 
 export function fill(parent: Element, kids: readonly Child[]): void {
-  while (parent.firstChild !== null) parent.removeChild(parent.firstChild);
+  while (parent.firstChild) parent.removeChild(parent.firstChild);
   add(parent, kids);
 }
 
 /** Text kept out of sight but left readable by a screen reader. */
-export const sr = (text: string): HTMLElement => el('span', 'sr', text);
-
+export const sr = (t: string): HTMLElement => el('span', 'sr', t);
 /** A decorative glyph, hidden from the accessibility tree. */
-export const mark = (className: string, glyph: string): HTMLElement =>
-  attr(el('span', className, glyph), { 'aria-hidden': 'true' });
+export const mark = (cls: string, g: string): HTMLElement =>
+  attr(el('span', cls, g), { 'aria-hidden': 'true' });

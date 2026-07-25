@@ -1,95 +1,73 @@
-/** Domain vocabulary shared by storage, the streak rule and the views. */
-
-/** A calendar day in the viewer's own timezone, `YYYY-MM-DD`. */
 export type DayKey = string;
-export type HabitId = string;
 export type Ink = 'oxblood' | 'verdigris' | 'brass' | 'indigo' | 'plum';
+export type StreakStatus = 'unstarted' | 'active' | 'at-risk' | 'broken';
+export type View = 'month' | 'recent';
+export type Phase = 'pending' | 'ready' | 'failed';
 
 export interface Habit {
-  readonly id: HabitId;
-  readonly name: string;
-  readonly ink: Ink;
-  readonly createdAt: number;
+  id: string;
+  name: string;
+  ink: Ink;
+  createdAt: number;
 }
-
-/** One completion mark: a habit was done on a given local day. */
 export interface HabitLog {
-  readonly habitId: HabitId;
-  readonly day: DayKey;
+  habitId: string;
+  day: DayKey;
 }
-
-export type StreakStatus = 'unstarted' | 'active' | 'at-risk' | 'broken';
-
 export interface StreakResult {
-  readonly current: number;
-  readonly longest: number;
-  readonly status: StreakStatus;
-  readonly today: boolean;
-  readonly total: number;
+  current: number;
+  longest: number;
+  status: StreakStatus;
+  today: boolean;
+  total: number;
 }
-
 export interface Milestone {
-  readonly days: number;
-  readonly seal: string;
-  readonly label: string;
+  days: number;
+  seal: string;
+  label: string;
 }
-
 export interface MilestoneProgress {
-  readonly earned: readonly Milestone[];
-  readonly next: Milestone | null;
-  readonly left: number | null;
-  readonly ratio: number;
+  earned: Milestone[];
+  next: Milestone | null;
+  left: number;
+  ratio: number;
 }
-
 export interface CalendarDay {
-  readonly day: DayKey;
-  readonly number: number;
-  readonly state: 'done' | 'missed' | 'future' | 'before';
-  readonly isToday: boolean;
-  readonly outside: boolean;
+  day: DayKey;
+  n: number;
+  state: 'done' | 'missed' | 'future' | 'before';
+  isToday: boolean;
+  outside: boolean;
 }
-
 export interface Snapshot {
-  readonly habits: readonly Habit[];
-  readonly logs: readonly HabitLog[];
+  habits: Habit[];
+  logs: HabitLog[];
 }
-
-export interface StorageFailure {
-  readonly kind: 'unavailable' | 'parse' | 'shape' | 'quota' | 'unknown';
-  readonly message: string;
+export interface Failure {
+  kind: 'unavailable' | 'parse' | 'shape' | 'quota' | 'unknown';
+  message: string;
 }
-
-export type StorageResult<T> =
-  | { readonly ok: true; readonly value: T }
-  | { readonly ok: false; readonly error: StorageFailure };
-
-export type Validation =
-  | { readonly valid: true; readonly value: string }
-  | { readonly valid: false; readonly message: string };
-
-export type Phase = 'pending' | 'ready' | 'failed';
-export type View = 'month' | 'recent';
+export type Result<T> = { ok: true; value: T } | { ok: false; error: Failure };
+export type Validation = { valid: true; value: string } | { valid: false; message: string };
 
 export interface AppState {
-  readonly phase: Phase;
-  readonly habits: readonly Habit[];
-  readonly logs: readonly HabitLog[];
-  readonly view: View;
-  readonly formError: string | null;
-  readonly notice: string | null;
-  readonly saveError: string | null;
+  phase: Phase;
+  habits: Habit[];
+  logs: HabitLog[];
+  view: View;
+  formError: string | null;
+  notice: string | null;
+  saveError: string | null;
 }
-
 export interface Summary {
-  readonly habit: Habit;
-  readonly streak: StreakResult;
-  readonly milestones: MilestoneProgress;
-  readonly days: ReadonlySet<DayKey>;
+  habit: Habit;
+  streak: StreakResult;
+  seals: MilestoneProgress;
+  days: ReadonlySet<DayKey>;
 }
-
 export interface Actions {
-  readonly add: (name: string) => void;
-  readonly toggle: (id: HabitId) => void;
-  readonly remove: (id: HabitId) => void;
-  readonly setView: (view: View) => void;
+  add(name: string): void;
+  toggle(id: string): void;
+  remove(id: string): void;
+  setView(view: View): void;
 }
